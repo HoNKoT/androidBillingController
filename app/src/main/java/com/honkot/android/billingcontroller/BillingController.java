@@ -184,6 +184,48 @@ public class BillingController {
     }
 
     /**
+     * get history of purchase(billing)
+     * @return ArrayList of PurchaseResult. NULL means error state.
+     */
+    public ArrayList<PurchaseResult> getPurchaseHistory() {
+        // error check
+        if (isError()) return null;
+
+        Bundle owned_items;
+        try {
+            owned_items = mBillingService.getPurchases(
+                    API_VERSION,
+                    mContext.getPackageName(),
+                    "inapp",
+                    null);
+        } catch (RemoteException e) {
+            Log.e(TAG, "Remote Exception on getPurchaseHistory()");
+            return null;
+        }
+
+        int responseCode = owned_items.getInt(RESPONSE_CODE);
+        if( responseCode == BILLING_RESPONSE_RESULT_OK ) {
+            ArrayList data_list = owned_items.getStringArrayList("INAPP_PURCHASE_DATA_LIST");
+            ArrayList<PurchaseResult> ret = new ArrayList<>();
+            for (int i = 0; i < data_list.size(); ++i) {
+                String row = (String) data_list.get(i);
+                try {
+                    ret.add(new PurchaseResult(new JSONObject(row)));
+                } catch (JSONException e) {
+                    Log.e(TAG, "JSON Exception on getPurchaseHistory()");
+                    return null;
+                }
+            }
+
+            return ret;
+        } else {
+            Log.w(TAG, "This time is not RESPONSE_OK(0) -> " + responseCode);
+        }
+
+        return null;
+    }
+
+    /**
      * get purchase result. It should be called from onActivityResult()
      * @param requestCode requestCode on onActivityResult()
      * @param resultCode resultCode on onActivityResult()
