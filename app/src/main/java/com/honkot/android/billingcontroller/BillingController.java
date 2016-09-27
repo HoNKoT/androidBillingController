@@ -18,10 +18,15 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.IBinder;
 import android.util.Log;
 
 import com.android.vending.billing.IInAppBillingService;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * Controller of IInAppBillingService.<br />
@@ -136,11 +141,166 @@ public class BillingController {
      * This class should be called finalize faze such as onDestroy().
      */
     public void release() {
-        if( mServiceConnection != null ){
+        if (mServiceConnection != null) {
             mContext.unbindService(mServiceConnection);
         }
         mBillingService = null;
         mContext = null;
+    }
+
+    /**
+     * Check network connection
+     * @param context Application Context
+     * @return true: yes
+     */
+    public static boolean isNetworkConnected(Context context){
+        ConnectivityManager cm =  (ConnectivityManager)context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo info = cm.getActiveNetworkInfo();
+        if( info != null ){
+            return info.isConnected();
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Container of information about the product(item).
+     * It is made from JSON file which received from GooglePlay.
+     */
+    public class ProductInfo {
+        String productId, type, price, title, description;
+
+        ProductInfo(JSONObject object) {
+            try {
+                this.productId = object.getString("productId");
+                this.type = object.getString("type");
+                this.price = object.getString("price");
+                this.title = object.getString("title");
+                this.description = object.getString("description");
+            } catch (JSONException e) {
+                return;
+            }
+        }
+
+        /**
+         * The product ID for the product.
+         * @return productId
+         */
+        public String getProductId() { return productId;}
+
+        /**
+         * Value must be “inapp” for an in-app purchase type.
+         * @return type
+         */
+        public String getType() { return type;}
+
+        /**
+         * Formatted price of the item, including its currency sign. The price does not include tax.
+         * @return price
+         */
+        public String getPrice() { return price;}
+
+        /**
+         * Title of the product.
+         * @return title
+         */
+        public String getTitle() { return title;}
+
+        /**
+         * Description of the product.
+         * @return description
+         */
+        public String getDescription() { return description;}
+
+        /**
+         * dump to log
+         */
+        public void dump() {
+            Log.v(TAG, "---Product Info---");
+            Log.v(TAG, "productId : " + productId);
+            Log.v(TAG, "type : " + type);
+            Log.v(TAG, "price : " + price);
+            Log.v(TAG, "title : " + title);
+            Log.v(TAG, "description : " + description);
+        }
+    }
+
+    /**
+     * Container of information about purchase result.
+     * It is made from JSON file which received from GooglePlay.
+     */
+    public class PurchaseResult {
+        String orderId, packageName, productId, purchaseTime, purchaseState, developerPayload, purchaseToken;
+
+        PurchaseResult(JSONObject object) {
+            try {
+                this.orderId = object.getString("orderId");
+                this.packageName = object.getString("packageName");
+                this.productId = object.getString("productId");
+                this.purchaseTime = object.getString("purchaseTime");
+                this.purchaseState = object.getString("purchaseState");
+                this.developerPayload = object.getString("developerPayload");
+                this.purchaseToken = object.getString("purchaseToken");
+            } catch (JSONException e) {
+                return;
+            }
+        }
+
+        /**
+         * A unique order identifier for the transaction. This corresponds to the Google Wallet Order ID.
+         * @return orderId
+         */
+        public String getOrderId() { return orderId;}
+
+        /**
+         * The application package from which the purchase originated.
+         * @return packageName
+         */
+        public String getPackageName() { return packageName;}
+
+        /**
+         * The item's product identifier. Every item has a product ID, which you must specify in the application's product list on the Google Play publisher site.
+         * @return productId
+         */
+        public String getProductId() { return productId;}
+
+        /**
+         * The time the product was purchased, in milliseconds since the epoch (Jan 1, 1970).
+         * @return purchaseTime
+         */
+        public String getPurchaseTime() { return purchaseTime;}
+
+        /**
+         * The purchase state of the order. Possible values are 0 (purchased), 1 (canceled), or 2 (refunded).
+         * @return purchaseState
+         */
+        public String getPurchaseState() { return purchaseState;}
+
+        /**
+         * A developer-specified string that contains supplemental information about an order. You can specify a value for this field when you make a getBuyIntent request.
+         * @return developerPayload
+         */
+        public String getDeveloperPayload() { return developerPayload;}
+
+        /**
+         * A token that uniquely identifies a purchase for a given item and user pair.
+         * @return purchaseToken
+         */
+        public String getPurchaseToken() { return purchaseToken;}
+
+        /**
+         * dump to log
+         */
+        public void dump() {
+            Log.v(TAG, "---BillingHistory Product info---");
+            Log.v( TAG, "orderId = " + orderId);
+            Log.v( TAG, "packageName = " + packageName);
+            Log.v( TAG, "productId = " + productId);
+            Log.v( TAG, "purchaseTime = " + purchaseTime);
+            Log.v( TAG, "purchaseState = " + purchaseState);
+            Log.v( TAG, "developerPayload = " + developerPayload);
+            Log.v( TAG, "purchaseToken = " + purchaseToken);
+        }
     }
 
     public void finalize() {
