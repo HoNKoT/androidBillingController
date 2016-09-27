@@ -20,13 +20,17 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.os.Bundle;
 import android.os.IBinder;
+import android.os.RemoteException;
 import android.util.Log;
 
 import com.android.vending.billing.IInAppBillingService;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.util.ArrayList;
 
 /**
  * Controller of IInAppBillingService.<br />
@@ -127,6 +131,56 @@ public class BillingController {
                 this.mServiceConnection,
                 Context.BIND_AUTO_CREATE
         );
+    }
+
+    /**
+     * Get valiable product list.
+     * @return ArrayList of ProductInfo. NULL means error state.
+     */
+    public ArrayList<ProductInfo> getProductsInfo(String productId, boolean inapp) {
+        // error check
+        if (isError() || productId == null) return null;
+
+        ArrayList<String> request_id_list = new ArrayList<String>();
+        request_id_list.add(productId);
+        Bundle query = new Bundle();
+        query.putStringArrayList("ITEM_ID_LIST", request_id_list);
+
+        Bundle details;
+        String type = inapp ? "inapp" : "subs";
+        try {
+            details = mBillingService.getSkuDetails(
+                    API_VERSION,
+                    mContext.getPackageName(),
+                    type,
+                    query);
+        } catch (RemoteException e) {
+            Log.e(TAG, "Remote Exception on getProductsInfo()");
+            return null;
+        }
+
+        int responseCode = details.getInt(RESPONSE_CODE);
+        if (responseCode == BILLING_RESPONSE_RESULT_OK){
+            // get product list
+            ArrayList<String> response_list = details.getStringArrayList("DETAILS_LIST");
+            ArrayList<ProductInfo> ret = new ArrayList<>();
+
+            int count = 0;
+            for( String row : response_list ){
+                try {
+                    ret.add(new ProductInfo(new JSONObject(row)));
+                    count++;
+                } catch (JSONException e) {
+                    Log.e(TAG, "JSONException Exception on getProductsInfo()");
+                    return null;
+                }
+            }
+            return ret;
+        } else {
+            Log.w(TAG, "This time is not RESPONSE_OK(0) -> " + responseCode);
+        }
+
+        return null;
     }
 
     /**
