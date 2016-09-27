@@ -247,6 +247,8 @@ public class BillingController {
                 } catch (NullPointerException e) {
                     return null;
                 }
+            } else {
+                Log.w(TAG, "This time is not RESPONSE_OK(0) -> " + responseCode);
             }
         }
 
