@@ -14,9 +14,12 @@
  */
 package com.honkot.android.billingcontroller;
 
+import android.app.Activity;
+import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentSender;
 import android.content.ServiceConnection;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -253,6 +256,49 @@ public class BillingController {
         }
 
         return null;
+    }
+
+    /**
+     * buy product (to move google play).
+     * After call this method, you can receive the result on onActivityResult() in your activity.
+     * Then, you can call getPurchaseResult() with some args for knowing detail.
+     * @param productId target product id
+     * @param inapp the product is inapp or subscription
+     * @param target your activity
+     */
+    public void buy(String productId, boolean inapp, Activity target) {
+        Bundle buy_intent_bundle;
+        String type = inapp ? "inapp" : "subs";
+        try {
+            buy_intent_bundle = mBillingService.getBuyIntent(
+                    API_VERSION,
+                    mContext.getPackageName(),
+                    productId,
+                    type,
+                    "developerPayload");
+        } catch (RemoteException e) {
+            Log.e(TAG, "Remote Exception on buy()");
+            return;
+        }
+
+        int responseCode = buy_intent_bundle.getInt(RESPONSE_CODE);
+        if( responseCode == BILLING_RESPONSE_RESULT_OK ) {
+            PendingIntent pending_intent = buy_intent_bundle.getParcelable("BUY_INTENT");
+            try {
+                target.startIntentSenderForResult(
+                        pending_intent.getIntentSender(),
+                        ACTIVITY_RESULT_CODE,
+                        new Intent(),
+                        Integer.valueOf(0),
+                        Integer.valueOf(0),
+                        Integer.valueOf(0));
+            } catch (IntentSender.SendIntentException e) {
+                Log.e(TAG, "SendIntentException on buy()");
+                return;
+            }
+        }
+
+        // return to onActivityResult()
     }
 
     /**
