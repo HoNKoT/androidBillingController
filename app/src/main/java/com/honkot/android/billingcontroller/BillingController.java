@@ -14,11 +14,21 @@
  */
 package com.honkot.android.billingcontroller;
 
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
+import android.os.IBinder;
+import android.util.Log;
+
+import com.android.vending.billing.IInAppBillingService;
+
 /**
  * Controller of IInAppBillingService.<br />
  * You need IInAppBillingService.aidl and complete build including it before use this class.
  */
-public class BillingContoroller {
+public class BillingController {
+
     /** Test product ID which can be purchased */
     public static final String TESTPRODUCT_PURCHASED = "android.test.purchased";
     /** Test product ID which can be canceled */
@@ -60,4 +70,81 @@ public class BillingContoroller {
     public static final Integer BILLING_RESPONSE_RESULT_ITEM_ALREADY_OWNED = 7;
     /** Failure to consume since item is not owned */
     public static final Integer BILLING_RESPONSE_RESULT_ITEM_NOT_OWNED  = 8;
+
+    private IInAppBillingService mBillingService = null;
+    private ServiceConnection mServiceConnection = null;
+    private Context mContext;
+    private OnServiceResponseListener mListener;
+
+    private final String TAG = "BuillingController";
+    public static final int API_VERSION = 3;
+    public static final int ACTIVITY_RESULT_CODE = 999;
+
+    /**
+     * Listener for watching service state.
+     */
+    public interface OnServiceResponseListener {
+        void onServiceConnected();
+        void onServiceDisconnected();
+    }
+
+    public BillingController(Context context, OnServiceResponseListener listener) {
+        // error check
+        if (context == null || listener == null) return;
+
+        // save valuable
+        mContext = context;
+        mListener = listener;
+
+        // get service connection for IInAppBillingService
+        mServiceConnection = new ServiceConnection(){
+            @Override
+            public void onServiceConnected(ComponentName paramComponentName, IBinder paramIBinder){
+                // save stub
+                Log.i(TAG, "Connected to service.");
+                mBillingService = IInAppBillingService.Stub.asInterface(paramIBinder);
+                mListener.onServiceConnected();
+            }
+            @Override
+            public void onServiceDisconnected(ComponentName paramComponentName){
+                // put null into stub holder when service is disconnected
+                Log.e(TAG, "Service is disconnected. (Called onServiceDisconnected)");
+                mBillingService = null;
+                mListener.onServiceDisconnected();
+            }
+        };
+
+        // bind service
+        Intent intent = new Intent("com.android.vending.billing.InAppBillingService.BIND");
+        intent.setPackage("com.android.vending");
+        mContext.bindService(
+                intent,
+                this.mServiceConnection,
+                Context.BIND_AUTO_CREATE
+        );
+    }
+
+    /**
+     * Check something error caused or not.
+     * @return true: ERROR
+     */
+    public boolean isError() {
+        return mBillingService == null || mServiceConnection == null;
+    }
+
+    /**
+     * This class should be called finalize faze such as onDestroy().
+     */
+    public void release() {
+        if( mServiceConnection != null ){
+            mContext.unbindService(mServiceConnection);
+        }
+        mBillingService = null;
+        mContext = null;
+    }
+
+    public void finalize() {
+        // just in case
+        release();
+    }
 }
