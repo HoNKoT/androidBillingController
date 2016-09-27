@@ -184,6 +184,34 @@ public class BillingController {
     }
 
     /**
+     * get purchase result. It should be called from onActivityResult()
+     * @param requestCode requestCode on onActivityResult()
+     * @param resultCode resultCode on onActivityResult()
+     * @param data data on onActivityResult()
+     * @return purchase result. NULL means error state.
+     */
+    public PurchaseResult getPurchaseResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == ACTIVITY_RESULT_CODE){
+            int responseCode = data.getIntExtra(RESPONSE_CODE, 0);
+            if(responseCode == BILLING_RESPONSE_RESULT_OK){
+                String purchase_data = data.getStringExtra(INAPP_PURCHASE_DATA);
+
+                try {
+                    PurchaseResult ret = new PurchaseResult(new JSONObject(purchase_data));
+                    return ret;
+                } catch (JSONException e) {
+                    Log.e(TAG, "JSON Exception on getPurchaseResult()");
+                    return null;
+                } catch (NullPointerException e) {
+                    return null;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Check something error caused or not.
      * @return true: ERROR
      */
