@@ -302,6 +302,26 @@ public class BillingController {
     }
 
     /**
+     * Consume purchase. Before call this, you should get PurchaseResult instance somehow such as getPurchaseHistory().
+     * @param target consume target
+     * @return -1 : error state
+     */
+    public int consumePurchase(PurchaseResult target) {
+        // error check
+        if (target == null) return -1;
+
+        try {
+            return mBillingService.consumePurchase(
+                    API_VERSION,
+                    target.getPackageName(),
+                    target.getPurchaseToken());
+        } catch (RemoteException e) {
+            Log.e(TAG, "RemoteException on consumePurchase()");
+            return -1;
+        }
+    }
+
+    /**
      * Check something error caused or not.
      * @return true: ERROR
      */
