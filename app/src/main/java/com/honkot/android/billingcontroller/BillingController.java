@@ -83,13 +83,19 @@ public class BillingController {
     /** Failure to consume since item is not owned */
     public static final Integer BILLING_RESPONSE_RESULT_ITEM_NOT_OWNED  = 8;
 
+    /** Product type of in-app */
+    private static final String TYPE_INAPP = "inapp";
+    /** Product type of subscriptions */
+    private static final String TYPE_SUBSCRIPTIONS = "subs";
+
     private IInAppBillingService mBillingService = null;
     private ServiceConnection mServiceConnection = null;
     private Context mContext;
     private OnServiceResponseListener mListener;
 
     private final String TAG = "BuillingController";
-    public static final int API_VERSION = 3;
+    public static final int API_VERSION_FOR_INAPP = 3;
+    public static final int API_VERSION_FOR_SUBS = 5;
     public static final int ACTIVITY_RESULT_CODE = 999;
 
     /**
@@ -115,7 +121,37 @@ public class BillingController {
                 // save stub
                 Log.i(TAG, "Connected to service.");
                 mBillingService = IInAppBillingService.Stub.asInterface(paramIBinder);
-                mListener.onServiceConnected();
+
+                // api support check
+                try {
+                    // check for inapp version
+                    int response = mBillingService.isBillingSupported(
+                            API_VERSION_FOR_INAPP,
+                            mContext.getPackageName(),
+                            TYPE_INAPP);
+                    if (response != BILLING_RESPONSE_RESULT_OK) {
+                        // unsupport API version. this class cannot work well.
+                        mListener.onServiceConnected();
+                        return;
+                    }
+
+                    // check for subs version
+                    response = mBillingService.isBillingSupported(
+                            API_VERSION_FOR_SUBS,
+                            mContext.getPackageName(),
+                            TYPE_SUBSCRIPTIONS);
+                    if (response != BILLING_RESPONSE_RESULT_OK) {
+                        // unsupport API version. this class cannot work well.
+                        mListener.onServiceConnected();
+                        return;
+                    }
+
+
+
+                } catch (RemoteException e) {
+                    // unsupport API version. this class cannot work well.
+                    mListener.onServiceDisconnected();
+                }
             }
             @Override
             public void onServiceDisconnected(ComponentName paramComponentName){
@@ -150,10 +186,12 @@ public class BillingController {
         query.putStringArrayList("ITEM_ID_LIST", request_id_list);
 
         Bundle details;
-        String type = inapp ? "inapp" : "subs";
+
+        int apiVersion = inapp ? API_VERSION_FOR_INAPP : API_VERSION_FOR_SUBS;
+        String type = inapp ? TYPE_INAPP : TYPE_SUBSCRIPTIONS;
         try {
             details = mBillingService.getSkuDetails(
-                    API_VERSION,
+                    apiVersion,
                     mContext.getPackageName(),
                     type,
                     query);
@@ -190,16 +228,18 @@ public class BillingController {
      * get history of purchase(billing)
      * @return ArrayList of PurchaseResult. NULL means error state.
      */
-    public ArrayList<PurchaseResult> getPurchaseHistory() {
+    public ArrayList<PurchaseResult> getPurchaseHistory(boolean inapp) {
         // error check
         if (isError()) return null;
 
         Bundle owned_items;
+        int apiVersion = inapp ? API_VERSION_FOR_INAPP : API_VERSION_FOR_SUBS;
+        String type = inapp ? TYPE_INAPP : TYPE_SUBSCRIPTIONS;
         try {
             owned_items = mBillingService.getPurchases(
-                    API_VERSION,
+                    apiVersion,
                     mContext.getPackageName(),
-                    "inapp",
+                    type,
                     null);
         } catch (RemoteException e) {
             Log.e(TAG, "Remote Exception on getPurchaseHistory()");
@@ -268,10 +308,12 @@ public class BillingController {
      */
     public void buy(String productId, boolean inapp, Activity target) {
         Bundle buy_intent_bundle;
-        String type = inapp ? "inapp" : "subs";
+
+        int apiVersion = inapp ? API_VERSION_FOR_INAPP : API_VERSION_FOR_SUBS;
+        String type = inapp ? TYPE_INAPP : TYPE_SUBSCRIPTIONS;
         try {
             buy_intent_bundle = mBillingService.getBuyIntent(
-                    API_VERSION,
+                    apiVersion,
                     mContext.getPackageName(),
                     productId,
                     type,
@@ -282,7 +324,7 @@ public class BillingController {
         }
 
         int responseCode = buy_intent_bundle.getInt(RESPONSE_CODE);
-        if( responseCode == BILLING_RESPONSE_RESULT_OK ) {
+        if (responseCode == BILLING_RESPONSE_RESULT_OK) {
             PendingIntent pending_intent = buy_intent_bundle.getParcelable("BUY_INTENT");
             try {
                 target.startIntentSenderForResult(
@@ -312,7 +354,7 @@ public class BillingController {
 
         try {
             return mBillingService.consumePurchase(
-                    API_VERSION,
+                    API_VERSION_FOR_INAPP,
                     target.getPackageName(),
                     target.getPurchaseToken());
         } catch (RemoteException e) {
